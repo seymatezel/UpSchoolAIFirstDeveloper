@@ -1,46 +1,54 @@
-#swot_gent.py
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
-from langchain.schema.output_parser import StrOutputParser
+# YANLIŞ İTHALATI DEĞİŞTİRİYORUZ:
+# from langchain.pydantic_v1 import BaseModel, Field # <-- BU SATIRI SİLİN
+from pydantic import BaseModel, Field # <-- DOĞRU İTHALAT BU
 
-def get_swot_analysis(cv_text: str, api_key: str):
+from langchain.output_parsers import PydanticOutputParser
+from typing import List
+
+# 1. Çıktının Veri Yapısı (Değişiklik yok, zaten doğru)
+class SwotItem(BaseModel):
+    anahtar_kelime: str = Field(description="Maddenin özünü özetleyen 1-2 kelimelik anahtar yetkinlik. Örneğin: 'Takım Çalışması', 'Proaktif Olma', 'Teknik Yetkinlik'.")
+    kanit: str = Field(description="Bu anahtar kelimeyi destekleyen, CV'den alınan kısa ve doğrudan kanıt cümlesi.")
+    yorum: str = Field(description="Bu kanıtın kariyer açısından ne anlama geldiğine dair kısa ve net analist yorumu.")
+
+class SwotAnalysis(BaseModel):
+    guclu_yonler: List[SwotItem] = Field(description="Kullanıcının CV'sindeki güçlü yönlerin listesi.")
+    gelisim_firsatlari: List[SwotItem] = Field(description="Zayıflık olarak değil, gelişim fırsatı olarak görülen alanların listesi.")
+    dikkate_alinmasi_gerekenler: List[SwotItem] = Field(description="Kariyer yolunda dikkat edilmesi gereken potansiyel zorluklar veya tehditler.")
+    firsatlar: List[SwotItem] = Field(description="Kullanıcının yetenekleriyle eşleşen potansiyel dış fırsatların listesi.")
+    
+
+def get_swot_analysis(cv_text: str, api_key: str) -> SwotAnalysis:
     """
-    Verilen CV metni için LangChain kullanarak SWOT analizi yapar.
+    Verilen CV metni için anahtar kelime odaklı yapılandırılmış bir SWOT analizi nesnesi döndürür.
     """
-    # 1. Modeli Tanımla
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.7)
+    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.5)
+    
+    # Parser ve prompt kısımları aynı kalabilir, çünkü sorun modelin kendisindeydi.
+    parser = PydanticOutputParser(pydantic_object=SwotAnalysis)
 
-    # 2. Prompt (Komut) Şablonunu Oluştur
-    prompt_template = PromptTemplate.from_template(
-        """
-        Sen, son derece zeki ve insan odaklı bir kariyer analistisin. Görevin, sana sunulan CV'deki her bir önemli noktayı, bir "Kanıt" ve bir "Yorum" olarak ayrıştırarak sunmaktır. Bu, cevabının çok daha okunabilir ve etkili olmasını sağlayacak. Kesinlikle "Örnek:" kelimesini kullanma.
+    prompt_template = PromptTemplate(
+        template="""
+        Sen, son derece zeki ve insan odaklı bir kariyer analistisin. Görevin, sana sunulan CV'yi analiz ederek yapılandırılmış bir SWOT analizi oluşturmak.
 
-        **Kullanacağın Format:** Her bir madde için şu ikili yapıyı kullan:
-        > **CV'den Kanıt:** "[Buraya CV'den kısa, doğrudan bir alıntı yap. Örneğin: 'Denizbank Denizaşırı Staj Programı'ndaki 5 haftalık deneyim']"
-        > **Yorumum:** Bu kanıtın ne anlama geldiğini, adayın hangi yeteneğini gösterdiğini ve neden önemli olduğunu açıkla.
+        Her bir madde için şu üç adımı izle:
+        1.  **Anahtar Kelime (`anahtar_kelime`):** İlk olarak, bulduğun yetkinliği veya durumu özetleyen 1-2 kelimelik bir anahtar kelime belirle. (Örnek: 'Liderlik', 'Teknik Beceri', 'İngilizce Seviyesi'). Bu çok önemli.
+        2.  **Kanıt (`kanit`):** Sonra, bu anahtar kelimeyi destekleyen somut kanıtı CV'den bul.
+        3.  **Yorum (`yorum`):** Son olarak, bu kanıtın ne anlama geldiğini yorumla.
 
-        Lütfen bu formatı SWOT analizinin her bölümü için uygula.
+        Cevabını, istenen JSON formatına birebir uyacak şekilde hazırla.
 
-        ### 🎯 **Güçlü Yönler (Strengths)**
-        (Buraya CV'den bulduğun güçlü yönler için Kanıt/Yorum çiftlerini ekle)
-
-        ### 💪 **Gelişim Fırsatları (Weaknesses as Opportunities)**
-        (Buraya CV'deki potansiyel gelişim alanları için Kanıt/Yorum çiftlerini ekle)
-
-        ### ✨ **Fırsatlar (Opportunities)**
-        (Buraya CV'deki yeteneklerle sektördeki fırsatları birleştiren Kanıt/Yorum çiftlerini ekle)
-
-        ### 🤔 **Dikkate Alınması Gerekenler (Threats as Challenges)**
-        (Buraya sektördeki zorlukları CV ile ilişkilendiren Kanıt/Yorum çiftlerini ekle)
+        {format_instructions}
 
         CV Metni:
         {cv}
-        """
+        """,
+        input_variables=["cv"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
     )
 
-    # 3. Zinciri (Chain) Oluştur: Prompt -> Model -> Çıktı Parser
-    chain = prompt_template | llm | StrOutputParser()
-
-    # 4. Zinciri Çalıştır ve Sonucu Döndür
+    chain = prompt_template | llm | parser
     response = chain.invoke({"cv": cv_text})
     return response
