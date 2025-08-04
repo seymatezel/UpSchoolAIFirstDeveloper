@@ -1,11 +1,15 @@
-#plan_agent.py
+# plan_agent.py (GÜNCELLENMİŞ)
+
+import streamlit as st  # <- 1. EKLENEN SATIR
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 
+@st.cache_data  # <- 2. EKLENEN SATIR
 def get_learning_plan(cv_text: str, career_choice: str, api_key: str):
     """
     Seçilen kariyer ve CV'ye göre LangChain kullanarak kişisel bir öğrenme planı oluşturur.
+    Bu fonksiyon önbelleğe alınmıştır.
     """
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.6)
 

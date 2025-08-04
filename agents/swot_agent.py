@@ -1,13 +1,13 @@
+# swot_agent.py (GÜNCELLENMİŞ)
+
+import streamlit as st  # <- 1. EKLENEN SATIR
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
-# YANLIŞ İTHALATI DEĞİŞTİRİYORUZ:
-# from langchain.pydantic_v1 import BaseModel, Field # <-- BU SATIRI SİLİN
-from pydantic import BaseModel, Field # <-- DOĞRU İTHALAT BU
-
+from pydantic import BaseModel, Field 
 from langchain.output_parsers import PydanticOutputParser
 from typing import List
 
-# 1. Çıktının Veri Yapısı (Değişiklik yok, zaten doğru)
+# Veri yapıları (Bunlar sizde zaten vardı)
 class SwotItem(BaseModel):
     anahtar_kelime: str = Field(description="Maddenin özünü özetleyen 1-2 kelimelik anahtar yetkinlik. Örneğin: 'Takım Çalışması', 'Proaktif Olma', 'Teknik Yetkinlik'.")
     kanit: str = Field(description="Bu anahtar kelimeyi destekleyen, CV'den alınan kısa ve doğrudan kanıt cümlesi.")
@@ -18,15 +18,15 @@ class SwotAnalysis(BaseModel):
     gelisim_firsatlari: List[SwotItem] = Field(description="Zayıflık olarak değil, gelişim fırsatı olarak görülen alanların listesi.")
     dikkate_alinmasi_gerekenler: List[SwotItem] = Field(description="Kariyer yolunda dikkat edilmesi gereken potansiyel zorluklar veya tehditler.")
     firsatlar: List[SwotItem] = Field(description="Kullanıcının yetenekleriyle eşleşen potansiyel dış fırsatların listesi.")
-    
 
+@st.cache_data  # <- 2. EKLENEN SATIR
 def get_swot_analysis(cv_text: str, api_key: str) -> SwotAnalysis:
     """
     Verilen CV metni için anahtar kelime odaklı yapılandırılmış bir SWOT analizi nesnesi döndürür.
+    Bu fonksiyon önbelleğe alınmıştır.
     """
     llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=api_key, temperature=0.5)
     
-    # Parser ve prompt kısımları aynı kalabilir, çünkü sorun modelin kendisindeydi.
     parser = PydanticOutputParser(pydantic_object=SwotAnalysis)
 
     prompt_template = PromptTemplate(
