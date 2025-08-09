@@ -393,128 +393,96 @@ with tab_plan:
     else:
         st.info("Bu planı görmek için 'Genel Bakış' panelinde bir kariyer seçip 'Yol Haritamı Çiz' butonuna tıklayın.")
 
-# --- MÜLAKAT PROVASI SEKMESİ (RAG) - YENİ VE SADELEŞTİRİLMİŞ MANTIK ---
-# --- MÜLAKAT PROVASI SEKMESİ (RAG) - EN SAĞLAM VERSİYON ---
 with tab_rag:
     st.header("Mülakat Provası Yap!")
     st.write("Başvurmak istediğiniz pozisyonun iş ilanını yükleyin veya yapıştırın ve o ilana özel bir mülakat deneyimi yaşayın.")
     st.markdown("---")
 
-    # --- Callback Fonksiyonları: Mantığı butonlardan ayırır ---
-    # Bu fonksiyonlar, butonlara tıklandığında çalışacak.
+    should_create_chain = False
+    input_data = None
+    
+    # --- İŞ İLANI GİRİŞ ARAYÜZÜ ---
+    input_tab1, input_tab2 = st.tabs(["İlanı PDF Olarak Yükle", "İlan Metnini Yapıştır"])
 
-    def analyze_and_prepare_interview(input_data):
-        """İlanı analiz eder ve mülakat için gerekli state'leri hazırlar."""
-        with st.spinner("İlan analiz ediliyor ve mülakat ortamı hazırlanıyor..."):
-            try:
-                # 1. RAG zincirini oluştur
-                chain = create_rag_chain(input_data, GOOGLE_API_KEY)
-                if chain:
-                    # 2. State'leri temizle ve güncelle
-                    st.session_state.qa_chain = chain
-                    st.session_state.interview_started = False
-                    st.session_state.interview_history = []
-                    st.success("İlan analiz edildi! Provanızı başlatmaya hazırsınız.")
-                else:
-                    st.error("İlan işlenirken bir sorun oluştu. API anahtarınızı veya dosyayı kontrol edin.")
-                    st.session_state.qa_chain = None # Başarısız olursa None olarak ayarla
-            except Exception as e:
-                st.error(f"Analiz sırasında kritik bir hata oluştu: {e}")
-                st.session_state.qa_chain = None # Hata durumunda None yap
+    with input_tab1:
+        rag_uploaded_file = st.file_uploader("İş ilanı PDF'ini buraya yükleyin", type="pdf", key="interview_pdf_uploader")
+        if rag_uploaded_file and st.session_state.processed_rag_file_id != rag_uploaded_file.file_id:
+            if st.button("Bu İlanı Analiz Et", use_container_width=True, key="analyze_job_pdf"):
+                should_create_chain = True
+                input_data = rag_uploaded_file
+                st.session_state.processed_rag_file_id = rag_uploaded_file.file_id
+                st.session_state.processed_rag_text = None
 
-    def start_interview_session():
-        """Mülakatı başlatan ve ilk soruyu üreten fonksiyon."""
-        st.session_state.interview_started = True
-        with st.spinner("İlk mülakat sorunuz hazırlanıyor... Bu işlem biraz zaman alabilir."):
-            try:
-                initial_prompt = "Sen deneyimli bir işe alım yöneticisisin. Sana verdiğim iş ilanı metnini kullanarak bir mülakat simülasyonu başlat. İlk görevin, ilandaki en önemli teknik veya sosyal yetkinliğe odaklanan, adayın yeteneklerini ölçmeye yönelik yaratıcı ve açık uçlu bir soru sormak. Sadece soruyu sor, başka bir şey söyleme."
-                response_dict = st.session_state.qa_chain.invoke({"query": initial_prompt})
-                
-                if response_dict and 'result' in response_dict and response_dict['result']:
-                    st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
-                else:
-                    # Hata durumunda kullanıcıya bilgi ver ve mülakatı durdur
-                    st.error("Üzgünüz, ilk mülakat sorusu oluşturulamadı. Lütfen daha sonra tekrar deneyin veya farklı bir ilan kullanın.")
-                    st.session_state.interview_started = False # Hata oldu, başa dön
-            except Exception as e:
-                st.error(f"Soru oluşturulurken API hatası oluştu: {e}")
-                st.session_state.interview_started = False # Hata oldu, başa dön
+    with input_tab2:
+        job_ad_text = st.text_area("İş ilanı metnini buraya yapıştırın", height=250, key="job_ad_text", placeholder="İş ilanı metnini buraya yapıştırın...")
+        if st.button("Bu Metni Analiz Et", use_container_width=True, key="job_text_submit"):
+            if job_ad_text and st.session_state.processed_rag_text != job_ad_text:
+                should_create_chain = True
+                input_data = job_ad_text
+                st.session_state.processed_rag_text = job_ad_text
+                st.session_state.processed_rag_file_id = None
 
-    def reset_interview():
-        """Tüm mülakat state'lerini temizleyerek yeni ilana olanak tanır."""
-        st.session_state.qa_chain = None
+    # --- ZİNCİR OLUŞTURMA MANTIĞI ---
+    if should_create_chain:
+        st.session_state.qa_chain = create_rag_chain(input_data, GOOGLE_API_KEY)
         st.session_state.interview_started = False
         st.session_state.interview_history = []
-        st.info("Yeni bir iş ilanı yükleyebilirsiniz.")
-
-    # --- ARAYÜZ MANTIĞI ---
-
-    # 1. ADIM: İLAN YÜKLEME
-    if 'qa_chain' not in st.session_state or st.session_state.qa_chain is None:
-        input_tab1, input_tab2 = st.tabs(["İlanı PDF Olarak Yükle", "İlan Metnini Yapıştır"])
-
-        with input_tab1:
-            rag_uploaded_file = st.file_uploader("İş ilanı PDF'ini buraya yükleyin", type="pdf", key="interview_pdf_uploader")
-            if rag_uploaded_file:
-                 st.button(
-                    "Bu İlanı Analiz Et", 
-                    use_container_width=True, 
-                    key="analyze_job_pdf",
-                    on_click=analyze_and_prepare_interview, # Callback fonksiyonu
-                    args=(rag_uploaded_file,) # Fonksiyona gönderilecek argüman
-                )
-
-        with input_tab2:
-            job_ad_text = st.text_area("İş ilanı metnini buraya yapıştırın", height=250, key="job_ad_text_area")
-            if job_ad_text:
-                st.button(
-                    "Bu Metni Analiz Et", 
-                    use_container_width=True, 
-                    key="job_text_submit",
-                    on_click=analyze_and_prepare_interview, # Callback fonksiyonu
-                    args=(job_ad_text,) # Fonksiyona gönderilecek argüman
-                )
-    
-    # 2. ADIM: MÜLAKAT PROVASI
-    elif 'qa_chain' in st.session_state and st.session_state.qa_chain is not None:
-        
-        # Mülakat henüz başlamadıysa, başlatma butonunu göster
-        if not st.session_state.get('interview_started'):
-            st.button(
-                "Mülakat Provasını Başlat", 
-                use_container_width=True, 
-                key="start_interview",
-                on_click=start_interview_session # Mülakatı başlatan callback
-            )
-        
-        # Mülakat başladıysa, chat arayüzünü göster
+        if st.session_state.qa_chain:
+            st.success("İlan analiz edildi! Provanızı başlatmaya hazırsınız.")
         else:
-            # Chat geçmişini ekrana yazdır
-            for message in st.session_state.get('interview_history', []):
+            st.error("İlan işlenirken bir sorun oluştu. API anahtarınızı veya dosyayı kontrol edin.")
+        st.rerun()
+    
+    # --- MÜLAKAT SİMÜLASYONU ARAYÜZÜ ---
+    if st.session_state.get('qa_chain') is not None:
+        if not st.session_state.interview_started:
+            if st.button("Mülakat Provasını Başlat", use_container_width=True, key="start_interview"):
+                st.session_state.interview_started = True
+                st.session_state.interview_history = []
+                st.rerun()
+
+        if st.session_state.interview_started:
+            if not st.session_state.interview_history:
+                with st.spinner("İlk mülakat sorunuz hazırlanıyor..."):
+                    initial_prompt = "Sen deneyimli bir işe alım yöneticisisin. Sana verdiğim iş ilanı metnini kullanarak bir mülakat simülasyonu başlat. İlk görevin, ilandaki en önemli teknik veya sosyal yetkinliğe odaklanan, adayın yeteneklerini ölçmeye yönelik yaratıcı ve açık uçlu bir soru sormak. Sadece soruyu sor, başka bir şey söyleme."
+                    response_dict = st.session_state.qa_chain.invoke({"query": initial_prompt})
+                    if response_dict and 'result' in response_dict:
+                        st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
+                    else:
+                        st.error("İlk soru oluşturulamadı.")
+                    st.rerun()
+            
+            for message in st.session_state.interview_history:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
-            # Kullanıcıdan cevap al
             if user_answer := st.chat_input("Cevabınızı buraya yazın..."):
                 st.session_state.interview_history.append({"role": "user", "content": user_answer})
                 with st.spinner("Cevabınız değerlendiriliyor ve yeni soru hazırlanıyor..."):
-                    try:
-                        follow_up_prompt = f"Sen deneyimli bir işe alım yöneticisisin ve bir mülakat simülasyonu yapıyorsun. Sana verdiğim iş ilanı metnini ve adayın son cevabını dikkate alarak şu iki adımı uygula: 1. Geri Bildirim Ver: Adayın '{user_answer}' cevabını kısaca ve yapıcı bir dille değerlendir. 2. Yeni Soru Sor: İlandaki FARKLI bir yetkinliği ölçmek için yeni ve yaratıcı bir soruya geç. Tüm bu cevabını tek bir akıcı paragraf olarak sun. Konuşma geçmişi: {st.session_state.interview_history}"
-                        response_dict = st.session_state.qa_chain.invoke({"query": follow_up_prompt})
-                        
-                        if response_dict and 'result' in response_dict and response_dict['result']:
-                            st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
-                        else:
-                            st.session_state.interview_history.append({"role": "assistant", "content": "Üzgünüm, bir sonraki soruyu oluştururken bir sorunla karşılaştım. İstersen mülakatı bitirebiliriz."})
-                    except Exception as e:
-                        st.session_state.interview_history.append({"role": "assistant", "content": f"Üzgünüm, API ile iletişimde bir hata oluştu: {e}. Lütfen mülakatı sonlandırıp tekrar deneyin."})
-                st.rerun() # Sadece chat'i güncellemek için burada rerun kullanıyoruz
-
-        # Mülakatı bitirme/sıfırlama butonu (sadece mülakat zinciri varsa gösterilir)
-        st.markdown("---")
-        if st.button("Yeni İlanla Prova Yap", use_container_width=True, key="new_job_ad"):
-            reset_interview()
-            st.rerun() # Arayüzü sıfırlamak için
-
+                    follow_up_prompt = f"Sen deneyimli bir işe alım yöneticisisin ve bir mülakat simülasyonu yapıyorsun. Sana verdiğim iş ilanı metnini ve adayın son cevabını dikkate alarak şu iki adımı uygula: 1. Geri Bildirim Ver: Adayın '{user_answer}' cevabını kısaca ve yapıcı bir dille değerlendir. 2. Yeni Soru Sor: İlandaki FARKLI bir yetkinliği ölçmek için yeni ve yaratıcı bir soruya geç. Tüm bu cevabını tek bir akıcı paragraf olarak sun. Konuşma geçmişi: {st.session_state.interview_history}"
+                    response_dict = st.session_state.qa_chain.invoke({"query": follow_up_prompt})
+                    if response_dict and 'result' in response_dict:
+                        st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
+                    else:
+                        st.error("Yeni soru oluşturulamadı.")
+                st.rerun()
+                
+            st.markdown("---")
+            col_rag1, col_rag2 = st.columns(2)
+            with col_rag1:
+                if st.button("Mülakat Provasını Bitir", use_container_width=True, key="end_interview"):
+                    st.session_state.interview_started = False
+                    st.session_state.interview_history = []
+                    st.success("Prova sonlandırıldı.")
+                    st.rerun()
+            with col_rag2:
+                if st.button("Yeni İlanla Prova Yap", use_container_width=True, key="new_job_ad"):
+                    st.session_state.qa_chain = None
+                    st.session_state.interview_started = False
+                    st.session_state.interview_history = []
+                    st.session_state.processed_rag_file_id = None
+                    st.session_state.processed_rag_text = None
+                    st.info("Yeni bir iş ilanı yükleyebilirsiniz.")
+                    st.rerun()
     else:
         st.info("Bir mülakat provası yapmak için lütfen bir iş ilanı yükleyin veya metnini yapıştırın.")
