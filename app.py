@@ -1,4 +1,4 @@
-# TAM VE GÜNCEL APP.PY KODU - Metin Tutarlılığı ve Profesyonel Arayüz
+# TAM VE GÜNCEL APP.PY KODU - Performans Optimize Edilmiş Versiyon
 
 import streamlit as st
 import os
@@ -22,8 +22,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ÖZEL CSS İLE GÖRSELLEŞTİRME ---
-st.markdown("""
+# --- PERFORMANS İYİLEŞTİRMESİ: CSS'i cache'le ---
+@st.cache_data
+def get_custom_css():
+    return """
 <style>
     /* Ana arka plan - bej */
     .stApp { 
@@ -115,37 +117,78 @@ st.markdown("""
         margin: 0 !important; padding-left: 15px; border-left: 3px solid #FFDAB9;
     }
 </style>
-""", unsafe_allow_html=True)
+"""
 
+# CSS'i yükle
+st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 # .env dosyasındaki API anahtarını yükle
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# --- HAFIZA (SESSION STATE) ---
-for key in ['swot', 'career', 'plan', 'cv_text', 'qa_chain', 'interview_history', 'interview_started', 'cv_uploaded', 'processed_rag_file_id', 'processed_rag_text']:
-    if key not in st.session_state:
-        if key == 'cv_text': st.session_state[key] = ""
-        elif key == 'interview_history': st.session_state[key] = []
-        elif key == 'cv_uploaded' or key == 'interview_started': st.session_state[key] = False
-        else: st.session_state[key] = None
+# --- PERFORMANS İYİLEŞTİRMESİ: Session State'i optimize et ---
+def initialize_session_state():
+    """Session state'i bir kere initialize et"""
+    default_values = {
+        'swot': None,
+        'career': None,
+        'plan': None,
+        'cv_text': "",
+        'qa_chain': None,
+        'interview_history': [],
+        'interview_started': False,
+        'cv_uploaded': False,
+        'processed_rag_file_id': None,
+        'processed_rag_text': None,
+        'analysis_in_progress': False,  # Yeni: Çoklu tıklamayı önle
+        'chosen_career_for_plan': None  # Yeni: Seçilen kariyeri sakla
+    }
+    
+    for key, default_value in default_values.items():
+        if key not in st.session_state:
+            st.session_state[key] = default_value
 
-# --- DOSYA OKUMA FONKSİYONLARI ---
-def get_pdf_text(uploaded_file):
+# Session state'i initialize et
+initialize_session_state()
+
+# --- PERFORMANS İYİLEŞTİRMESİ: Dosya okuma fonksiyonlarını cache'le ---
+@st.cache_data
+def get_pdf_text_cached(file_content):
+    """PDF okuma işlemini cache'le"""
     try:
-        pdf_reader = pdf.PdfReader(uploaded_file)
+        import io
+        pdf_reader = pdf.PdfReader(io.BytesIO(file_content))
         return "".join(page.extract_text() for page in pdf_reader.pages)
     except Exception as e:
         st.error(f"PDF okunurken bir hata oluştu: {e}")
         return None
 
-def get_docx_text(uploaded_file):
+@st.cache_data
+def get_docx_text_cached(file_content):
+    """Word dosyası okuma işlemini cache'le"""
     try:
-        document = Document(uploaded_file)
+        import io
+        document = Document(io.BytesIO(file_content))
         return "\n".join([para.text for para in document.paragraphs])
     except Exception as e:
         st.error(f"Word dosyası okunurken bir hata oluştu: {e}")
         return None
+
+def get_pdf_text(uploaded_file):
+    return get_pdf_text_cached(uploaded_file.getvalue())
+
+def get_docx_text(uploaded_file):
+    return get_docx_text_cached(uploaded_file.getvalue())
+
+# --- PERFORMANS İYİLEŞTİRMESİ: Karriyer listesi çıkarımını cache'le ---
+@st.cache_data
+def extract_career_list(career_text):
+    """Kariyer listesini çıkarma işlemini cache'le"""
+    try:
+        titles = re.findall(r"Kariyer Yolu Önerisi:\s*(.*)", str(career_text))
+        return [title.replace('**', '').replace('🚀', '').strip() for title in titles]
+    except Exception:
+        return []
 
 # --- KENAR ÇUBUĞU (SIDEBAR) ---
 with st.sidebar:
@@ -186,15 +229,11 @@ with st.sidebar:
             st.text(st.session_state.cv_text[:500] + "...")
         
         if st.button("Yeni Bir Yolculuk Başlat (Sıfırla)", use_container_width=True):
-            # Keep the file uploader key to avoid Streamlit bugs
-            file_uploader_state = st.session_state.get('file_uploader_key')
-            # Clear all other session state keys
+            # Session state'i temizle
             for key in list(st.session_state.keys()):
                 if key != 'file_uploader_key':
                     del st.session_state[key]
-            # Restore the file uploader key if it existed
-            if file_uploader_state:
-                st.session_state['file_uploader_key'] = file_uploader_state
+            initialize_session_state()
             st.rerun()
 
 # --- ANA EKRAN ---
@@ -217,22 +256,50 @@ with tab_pano:
     with col1:
         st.subheader("1. Kendinizi Keşfedin")
         st.write("Kariyer yolculuğunuzda size avantaj sağlayacak güçlü yönlerinizi ve potansiyelinizi ortaya çıkarın.")
-        if st.button("SWOT Analizini Başlat", use_container_width=True, key="swot_btn", disabled=bool(st.session_state.swot)):
+        
+        # PERFORMANS İYİLEŞTİRMESİ: Çoklu tıklamayı önle
+        swot_button_disabled = bool(st.session_state.swot) or st.session_state.analysis_in_progress
+        
+        if st.button("SWOT Analizini Başlat", use_container_width=True, key="swot_btn", disabled=swot_button_disabled):
+            st.session_state.analysis_in_progress = True
             with st.spinner("Kişisel analiziniz oluşturuluyor..."):
-                st.session_state.swot = get_swot_analysis(st.session_state.cv_text, GOOGLE_API_KEY)
-            st.success("SWOT Analiziniz hazır!")
+                try:
+                    st.session_state.swot = get_swot_analysis(st.session_state.cv_text, GOOGLE_API_KEY)
+                    st.success("SWOT Analiziniz hazır!")
+                except Exception as e:
+                    st.error(f"Analiz sırasında hata: {e}")
+                finally:
+                    st.session_state.analysis_in_progress = False
             st.rerun()
-        if st.session_state.swot: st.success("Analiz tamamlandı!")
+            
+        if st.session_state.swot: 
+            st.success("Analiz tamamlandı!")
+        elif st.session_state.analysis_in_progress:
+            st.info("Analiz devam ediyor...")
 
     with col2:
         st.subheader("2. Alanlarınızı Belirleyin")
         st.write("Deneyim ve yeteneklerinize en uygun kariyer alanlarını öğrenin.")
-        if st.button("Bana Özel Alanları Göster", use_container_width=True, key="career_btn", disabled=bool(st.session_state.career)):
+        
+        # PERFORMANS İYİLEŞTİRMESİ: Çoklu tıklamayı önle
+        career_button_disabled = bool(st.session_state.career) or st.session_state.analysis_in_progress
+        
+        if st.button("Bana Özel Alanları Göster", use_container_width=True, key="career_btn", disabled=career_button_disabled):
+            st.session_state.analysis_in_progress = True
             with st.spinner("Potansiyelinizle eşleşen kariyerler bulunuyor..."):
-                st.session_state.career = get_career_paths(st.session_state.cv_text, GOOGLE_API_KEY)
-            st.success("Kariyer alanlarınız belirlendi!")
+                try:
+                    st.session_state.career = get_career_paths(st.session_state.cv_text, GOOGLE_API_KEY)
+                    st.success("Kariyer alanlarınız belirlendi!")
+                except Exception as e:
+                    st.error(f"Analiz sırasında hata: {e}")
+                finally:
+                    st.session_state.analysis_in_progress = False
             st.rerun()
-        if st.session_state.career: st.success("Öneriler hazır!")
+            
+        if st.session_state.career: 
+            st.success("Öneriler hazır!")
+        elif st.session_state.analysis_in_progress:
+            st.info("Analiz devam ediyor...")
 
     with col3:
         st.subheader("3. Yol Haritanızı Çizin")
@@ -240,43 +307,68 @@ with tab_pano:
         
         chosen_career = None
         if st.session_state.career:
-            try:
-                titles = re.findall(r"Kariyer Yolu Önerisi:\s*(.*)", str(st.session_state.career))
-                career_list = [title.replace('**', '').replace('🚀', '').strip() for title in titles]
+            career_list = extract_career_list(st.session_state.career)
 
-                if career_list:
-                    chosen_career = st.selectbox(
-                        "Bir kariyer hedefi seçin:", 
-                        options=career_list, 
-                        index=None, 
-                        placeholder="Önerilerden birini seçin..."
-                    )
-                else: 
-                    st.warning("Öneriler liste olarak alınamadı. Lütfen manuel girin.")
-                    chosen_career = st.text_input("Hedefinizi manuel girin:", placeholder="örn: Veri Bilimci")
-            except Exception:
-                st.error("Kariyer listesi işlenirken bir hata oluştu.")
+            if career_list:
+                chosen_career = st.selectbox(
+                    "Bir kariyer hedefi seçin:", 
+                    options=career_list, 
+                    index=None, 
+                    placeholder="Önerilerden birini seçin..."
+                )
+            else: 
+                st.warning("Öneriler liste olarak alınamadı. Lütfen manuel girin.")
                 chosen_career = st.text_input("Hedefinizi manuel girin:", placeholder="örn: Veri Bilimci")
         else:
             st.text_input("Hedefiniz için bir plan oluşturun", placeholder="Önce kariyer alanlarını keşfedin", disabled=True)
 
-        if st.button("Yol Haritamı Çiz", use_container_width=True, key="plan_btn", disabled=not chosen_career):
-            with st.spinner(f"'{chosen_career}' için yol haritanız çiziliyor..."):
-                st.session_state.plan = get_learning_plan(st.session_state.cv_text, chosen_career, GOOGLE_API_KEY)
-            st.success("Yol haritanız hazır!")
-            st.rerun()
-        if st.session_state.plan: st.success("Planınız hazır!")
+        # PERFORMANS İYİLEŞTİRMESİ: Çoklu tıklamayı önle ve gereksiz yeniden hesaplamayı önle
+        plan_button_disabled = not chosen_career or st.session_state.analysis_in_progress or (st.session_state.plan and st.session_state.chosen_career_for_plan == chosen_career)
         
-# --- SEKME İÇERİKLERİ ---
+        if st.button("Yol Haritamı Çiz", use_container_width=True, key="plan_btn", disabled=plan_button_disabled):
+            st.session_state.analysis_in_progress = True
+            with st.spinner(f"'{chosen_career}' için yol haritanız çiziliyor..."):
+                try:
+                    st.session_state.plan = get_learning_plan(st.session_state.cv_text, chosen_career, GOOGLE_API_KEY)
+                    st.session_state.chosen_career_for_plan = chosen_career
+                    st.success("Yol haritanız hazır!")
+                except Exception as e:
+                    st.error(f"Plan oluşturulurken hata: {e}")
+                finally:
+                    st.session_state.analysis_in_progress = False
+            st.rerun()
+            
+        if st.session_state.plan and st.session_state.chosen_career_for_plan == chosen_career: 
+            st.success("Planınız hazır!")
+        elif st.session_state.analysis_in_progress:
+            st.info("Plan hazırlanıyor...")
+
+# --- SWOT RENDER FONKSİYONU - Cache'li ---
+@st.cache_data
+def render_swot_items(items, section_type):
+    """SWOT öğelerini render etmek için cache'li fonksiyon"""
+    rendered_items = []
+    if items:
+        for item in items:
+            rendered_items.append({
+                'anahtar_kelime': item.anahtar_kelime,
+                'kanit': item.kanit,
+                'yorum': item.yorum
+            })
+    return rendered_items
+
 def render_swot_section(title: str, items: list):
     if items:
         st.markdown(f'<h3 class="swot-section-title">{title}</h3>', unsafe_allow_html=True)
-        for item in items:
-            with st.expander(f"{item.anahtar_kelime}"):
-                st.markdown(f'<p class="swot-detail-kanit"><b>CV\'den Kanıt:</b> {item.kanit}</p>', unsafe_allow_html=True)
-                st.markdown(f'<p class="swot-detail-yorum"><b>Analist Yorumu:</b> {item.yorum}</p>', unsafe_allow_html=True)
+        # PERFORMANS İYİLEŞTİRMESİ: Cache'li render kullan
+        cached_items = render_swot_items(items, title)
+        for item in cached_items:
+            with st.expander(f"{item['anahtar_kelime']}"):
+                st.markdown(f'<p class="swot-detail-kanit"><b>CV\'den Kanıt:</b> {item["kanit"]}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="swot-detail-yorum"><b>Analist Yorumu:</b> {item["yorum"]}</p>', unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
+# --- SEKME İÇERİKLERİ ---
 with tab_swot:
     st.header("SWOT Analiziniz: Hızlı Bakış")
     st.write("Aşağıda, analizin öne çıkan başlıklarını görebilirsiniz. Detayları görmek için başlıklara tıklayın.")
@@ -305,7 +397,7 @@ with tab_plan:
     else:
         st.info("Bu planı görmek için 'Genel Bakış' panelinde bir kariyer seçip 'Yol Haritamı Çiz' butonuna tıklayın.")
 
-# <<< BU BÖLÜM TAMAMEN YENİLENDİ VE DÜZELTİLDİ >>>
+# --- RAG BÖLÜMÜ - Performans iyileştirmeleri ile ---
 with tab_rag:
     st.header("Mülakat Provası Yap!")
     st.write("Başvurmak istediğiniz pozisyonun iş ilanını yükleyin veya yapıştırın ve o ilana özel bir mülakat deneyimi yaşayın.")
@@ -337,13 +429,17 @@ with tab_rag:
 
     # --- ZİNCİR OLUŞTURMA MANTIĞI ---
     if should_create_chain:
-        st.session_state.qa_chain = create_rag_chain(input_data, GOOGLE_API_KEY)
-        st.session_state.interview_started = False
-        st.session_state.interview_history = []
-        if st.session_state.qa_chain:
-            st.success("İlan analiz edildi! Provanızı başlatmaya hazırsınız.")
-        else:
-            st.error("İlan işlenirken bir sorun oluştu. API anahtarınızı veya dosyayı kontrol edin.")
+        with st.spinner("İlan analiz ediliyor..."):
+            try:
+                st.session_state.qa_chain = create_rag_chain(input_data, GOOGLE_API_KEY)
+                st.session_state.interview_started = False
+                st.session_state.interview_history = []
+                if st.session_state.qa_chain:
+                    st.success("İlan analiz edildi! Provanızı başlatmaya hazırsınız.")
+                else:
+                    st.error("İlan işlenirken bir sorun oluştu. API anahtarınızı veya dosyayı kontrol edin.")
+            except Exception as e:
+                st.error(f"RAG zinciri oluşturulurken hata: {e}")
         st.rerun()
     
     # --- MÜLAKAT SİMÜLASYONU ARAYÜZÜ ---
@@ -357,12 +453,15 @@ with tab_rag:
         if st.session_state.interview_started:
             if not st.session_state.interview_history:
                 with st.spinner("İlk mülakat sorunuz hazırlanıyor..."):
-                    initial_prompt = "Sen deneyimli bir işe alım yöneticisisin. Sana verdiğim iş ilanı metnini kullanarak bir mülakat simülasyonu başlat. İlk görevin, ilandaki en önemli teknik veya sosyal yetkinliğe odaklanan, adayın yeteneklerini ölçmeye yönelik yaratıcı ve açık uçlu bir soru sormak. Sadece soruyu sor, başka bir şey söyleme."
-                    response_dict = st.session_state.qa_chain.invoke({"query": initial_prompt})
-                    if response_dict and 'result' in response_dict:
-                        st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
-                    else:
-                        st.error("İlk soru oluşturulamadı.")
+                    try:
+                        initial_prompt = "Sen deneyimli bir işe alım yöneticisisin. Sana verdiğim iş ilanı metnini kullanarak bir mülakat simülasyonu başlat. İlk görevin, ilandaki en önemli teknik veya sosyal yetkinliğe odaklanan, adayın yeteneklerini ölçmeye yönelik yaratıcı ve açık uçlu bir soru sormak. Sadece soruyu sor, başka bir şey söyleme."
+                        response_dict = st.session_state.qa_chain.invoke({"query": initial_prompt})
+                        if response_dict and 'result' in response_dict:
+                            st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
+                        else:
+                            st.error("İlk soru oluşturulamadı.")
+                    except Exception as e:
+                        st.error(f"Mülakat başlatılırken hata: {e}")
                     st.rerun()
             
             for message in st.session_state.interview_history:
@@ -372,12 +471,15 @@ with tab_rag:
             if user_answer := st.chat_input("Cevabınızı buraya yazın..."):
                 st.session_state.interview_history.append({"role": "user", "content": user_answer})
                 with st.spinner("Cevabınız değerlendiriliyor ve yeni soru hazırlanıyor..."):
-                    follow_up_prompt = f"Sen deneyimli bir işe alım yöneticisisin ve bir mülakat simülasyonu yapıyorsun. Sana verdiğim iş ilanı metnini ve adayın son cevabını dikkate alarak şu iki adımı uygula: 1. Geri Bildirim Ver: Adayın '{user_answer}' cevabını kısaca ve yapıcı bir dille değerlendir. 2. Yeni Soru Sor: İlandaki FARKLI bir yetkinliği ölçmek için yeni ve yaratıcı bir soruya geç. Tüm bu cevabını tek bir akıcı paragraf olarak sun. Konuşma geçmişi: {st.session_state.interview_history}"
-                    response_dict = st.session_state.qa_chain.invoke({"query": follow_up_prompt})
-                    if response_dict and 'result' in response_dict:
-                        st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
-                    else:
-                        st.error("Yeni soru oluşturulamadı.")
+                    try:
+                        follow_up_prompt = f"Sen deneyimli bir işe alım yöneticisisin ve bir mülakat simülasyonu yapıyorsun. Sana verdiğim iş ilanı metnini ve adayın son cevabını dikkate alarak şu iki adımı uygula: 1. Geri Bildirim Ver: Adayın '{user_answer}' cevabını kısaca ve yapıcı bir dille değerlendir. 2. Yeni Soru Sor: İlandaki FARKLI bir yetkinliği ölçmek için yeni ve yaratıcı bir soruya geç. Tüm bu cevabını tek bir akıcı paragraf olarak sun."
+                        response_dict = st.session_state.qa_chain.invoke({"query": follow_up_prompt})
+                        if response_dict and 'result' in response_dict:
+                            st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
+                        else:
+                            st.error("Yeni soru oluşturulamadı.")
+                    except Exception as e:
+                        st.error(f"Mülakat devam ettirilemedi: {e}")
                 st.rerun()
                 
             st.markdown("---")
@@ -399,3 +501,146 @@ with tab_rag:
                     st.rerun()
     else:
         st.info("Bir mülakat provası yapmak için lütfen bir iş ilanı yükleyin veya metnini yapıştırın.")
+
+# --- FOOTER VE EK PERFORMANS ÖNERİLERİ ---
+st.markdown("---")
+st.markdown("### 💡 Performans İpuçları:")
+st.info("""
+**Streamlit Cloud'da En İyi Performans İçin:**
+- Analizler bir kere yapıldıktan sonra otomatik olarak kaydedilir
+- Sayfayı yenilemeden önce tüm analizlerinizin tamamlandığından emin olun
+- Büyük dosyalar yüklerken sabırlı olun - cloud ortamı yerel makinenizden daha yavaş olabilir
+""")
+
+# === EK PERFORMANS İYİLEŞTİRME ÖNERİLERİ ===
+
+"""
+REQUIREMENTS.TXT İÇİN EK ÖNERİLER:
+Bu paketler gereksizse kaldırabilirsiniz:
+
+# Kullanmıyorsanız kaldırın:
+- altair (görselleştirme için)
+- pillow (resim işleme için) 
+- pyarrow (veri işleme için)
+- SQLAlchemy (veritabanı için)
+
+# Daha hafif alternatifler:
+pypdf yerine PyPDF2==3.0.1 kullanmaya devam edin (daha hafif)
+
+# Kesinlikle gerekli olanlar:
+streamlit
+python-dotenv
+google-generativeai
+langchain
+langchain-google-genai
+langchain-community
+langchain-text-splitters
+chromadb
+PyPDF2
+python-docx
+requests
+"""
+
+# === PERFORMANS İYİLEŞTİRME CHECKPOINT'LERİ ===
+
+def add_performance_monitoring():
+    """Performans izleme için ekstra fonksiyonlar"""
+    
+    # Session state boyutunu kontrol et
+    if 'session_size_warning' not in st.session_state:
+        st.session_state.session_size_warning = False
+    
+    # Büyük veri kontrolü
+    total_size = 0
+    for key, value in st.session_state.items():
+        if isinstance(value, str):
+            total_size += len(value.encode('utf-8'))
+    
+    # 5MB'dan büyükse uyarı ver
+    if total_size > 5 * 1024 * 1024 and not st.session_state.session_size_warning:
+        st.warning("⚠️ Session verisi büyük boyutta. Performansı artırmak için sayfayı yenilemeyi düşünün.")
+        st.session_state.session_size_warning = True
+
+# Performans izlemeyi etkinleştir
+add_performance_monitoring()
+
+# === HATA YAKALAMA VE LOGLAma ===
+
+def safe_api_call(func, *args, **kwargs):
+    """API çağrılarını güvenli şekilde yap"""
+    try:
+        return func(*args, **kwargs)
+    except Exception as e:
+        st.error(f"API çağrısı başarısız: {str(e)[:100]}...")
+        return None
+
+# === KULLANICI DENEYİMİ İYİLEŞTİRMELERİ ===
+
+# Progress bar için yardımcı fonksiyon
+def show_progress_with_message(message, steps=3):
+    """Kullanıcı deneyimi için progress bar göster"""
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    for i in range(steps):
+        progress_bar.progress((i + 1) / steps)
+        status_text.text(f"{message} ({i+1}/{steps})")
+        time.sleep(0.5)
+    
+    progress_bar.empty()
+    status_text.empty()
+
+# === DİĞER OPTİMİZASYONLAR ===
+
+# Streamlit konfigürasyon önerileri (streamlit_config.toml için):
+"""
+[server]
+# Daha hızlı yükleme için
+enableCORS = false
+enableXsrfProtection = false
+
+# Bellek optimizasyonu için
+maxUploadSize = 100
+maxMessageSize = 100
+
+[browser]
+# Otomatik yenilemeyi kapat (performans için)
+gatherUsageStats = false
+
+[theme]
+# Tema optimizasyonu
+base = "light"
+"""
+
+# === CACHE CLEAR FONKSİYONU ===
+def clear_all_caches():
+    """Tüm cache'leri temizle"""
+    st.cache_data.clear()
+    if hasattr(st.cache_resource, 'clear'):
+        st.cache_resource.clear()
+
+# Gerektiğinde cache temizleme butonu ekle
+if st.button("🔄 Performans Sorununda Cache Temizle", help="Eğer uygulama çok yavaş çalışıyorsa bu butona basın"):
+    clear_all_caches()
+    st.success("Cache temizlendi! Sayfa yenilenecek.")
+    time.sleep(1)
+    st.rerun()
+
+# === MOBIL UYUMLULUK İÇİN EK CSS ===
+mobile_css = """
+<style>
+@media (max-width: 768px) {
+    .st-emotion-cache-1r4qj8v, 
+    .st-emotion-cache-1jicfl2 {
+        padding: 15px !important;
+        margin: 5px 0 !important;
+    }
+    
+    .stButton > button {
+        font-size: 0.9rem;
+        padding: 10px 20px;
+    }
+}
+</style>
+"""
+st.markdown(mobile_css, unsafe_allow_html=True)
