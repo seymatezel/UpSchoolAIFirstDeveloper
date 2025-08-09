@@ -123,7 +123,7 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # --- HAFIZA (SESSION STATE) ---
-for key in ['swot', 'career', 'plan', 'cv_text', 'qa_chain', 'interview_history', 'interview_started', 'cv_uploaded']:
+for key in ['swot', 'career', 'plan', 'cv_text', 'qa_chain', 'interview_history', 'interview_started', 'cv_uploaded', 'processed_rag_file_id', 'processed_rag_text']:
     if key not in st.session_state:
         if key == 'cv_text': st.session_state[key] = ""
         elif key == 'interview_history': st.session_state[key] = []
@@ -186,9 +186,15 @@ with st.sidebar:
             st.text(st.session_state.cv_text[:500] + "...")
         
         if st.button("Yeni Bir Yolculuk Başlat (Sıfırla)", use_container_width=True):
-            keys_to_delete = [k for k in st.session_state.keys() if k != 'file_uploader_key']
-            for key in keys_to_delete:
-                del st.session_state[key]
+            # Keep the file uploader key to avoid Streamlit bugs
+            file_uploader_state = st.session_state.get('file_uploader_key')
+            # Clear all other session state keys
+            for key in list(st.session_state.keys()):
+                if key != 'file_uploader_key':
+                    del st.session_state[key]
+            # Restore the file uploader key if it existed
+            if file_uploader_state:
+                st.session_state['file_uploader_key'] = file_uploader_state
             st.rerun()
 
 # --- ANA EKRAN ---
@@ -228,8 +234,6 @@ with tab_pano:
             st.rerun()
         if st.session_state.career: st.success("Öneriler hazır!")
 
-# app.py dosyanızdaki 'with col3:' bloğunu bununla değiştirin.
-
     with col3:
         st.subheader("3. Yol Haritanızı Çizin")
         st.write("Seçtiğiniz bir hedef için adım adım kişisel gelişim planınızı oluşturun.")
@@ -237,16 +241,10 @@ with tab_pano:
         chosen_career = None
         if st.session_state.career:
             try:
-                # GÜVENİLMEZ ESKİ YÖNTEM YERİNE, GÜVENİLİR YENİ YÖNTEM:
-                # 'Kariyer Yolu Önerisi:' ifadesinden sonra gelen her şeyi başlık olarak alıyoruz.
-                # Bu, career_agent.py'deki prompt formatıyla %100 uyumludur.
                 titles = re.findall(r"Kariyer Yolu Önerisi:\s*(.*)", str(st.session_state.career))
-                
-                # Bulunan başlıkları temizliyoruz (Markdown işaretleri, emojiler vb. kaldırılıyor).
                 career_list = [title.replace('**', '').replace('🚀', '').strip() for title in titles]
 
                 if career_list:
-                    # Temiz listeyi selectbox'a seçenek olarak veriyoruz.
                     chosen_career = st.selectbox(
                         "Bir kariyer hedefi seçin:", 
                         options=career_list, 
@@ -254,7 +252,6 @@ with tab_pano:
                         placeholder="Önerilerden birini seçin..."
                     )
                 else: 
-                    # Eğer regex başlık bulamazsa, kullanıcıya manuel giriş imkanı tanıyoruz.
                     st.warning("Öneriler liste olarak alınamadı. Lütfen manuel girin.")
                     chosen_career = st.text_input("Hedefinizi manuel girin:", placeholder="örn: Veri Bilimci")
             except Exception:
@@ -308,53 +305,64 @@ with tab_plan:
     else:
         st.info("Bu planı görmek için 'Genel Bakış' panelinde bir kariyer seçip 'Yol Haritamı Çiz' butonuna tıklayın.")
 
+# <<< BU BÖLÜM TAMAMEN YENİLENDİ VE DÜZELTİLDİ >>>
 with tab_rag:
     st.header("Mülakat Provası Yap!")
     st.write("Başvurmak istediğiniz pozisyonun iş ilanını yükleyin veya yapıştırın ve o ilana özel bir mülakat deneyimi yaşayın.")
     st.markdown("---")
 
-    for key in ['processed_rag_file_id', 'processed_rag_text']:
-        if key not in st.session_state: st.session_state[key] = None
-
     should_create_chain = False
     input_data = None
     
+    # --- İŞ İLANI GİRİŞ ARAYÜZÜ ---
     input_tab1, input_tab2 = st.tabs(["İlanı PDF Olarak Yükle", "İlan Metnini Yapıştır"])
 
     with input_tab1:
         rag_uploaded_file = st.file_uploader("İş ilanı PDF'ini buraya yükleyin", type="pdf", key="interview_pdf_uploader")
         if rag_uploaded_file and st.session_state.processed_rag_file_id != rag_uploaded_file.file_id:
             if st.button("Bu İlanı Analiz Et", use_container_width=True, key="analyze_job_pdf"):
-                should_create_chain = True; input_data = rag_uploaded_file
+                should_create_chain = True
+                input_data = rag_uploaded_file
                 st.session_state.processed_rag_file_id = rag_uploaded_file.file_id
+                st.session_state.processed_rag_text = None
 
     with input_tab2:
         job_ad_text = st.text_area("İş ilanı metnini buraya yapıştırın", height=250, key="job_ad_text", placeholder="İş ilanı metnini buraya yapıştırın...")
         if st.button("Bu Metni Analiz Et", use_container_width=True, key="job_text_submit"):
             if job_ad_text and st.session_state.processed_rag_text != job_ad_text:
-                should_create_chain = True; input_data = job_ad_text
+                should_create_chain = True
+                input_data = job_ad_text
                 st.session_state.processed_rag_text = job_ad_text
+                st.session_state.processed_rag_file_id = None
 
+    # --- ZİNCİR OLUŞTURMA MANTIĞI ---
     if should_create_chain:
-        with st.spinner("İş ilanı analiz ediliyor ve mülakat hazırlanıyor..."):
-            st.session_state.qa_chain = create_rag_chain(input_data, GOOGLE_API_KEY)
-            st.session_state.interview_started = False
-            st.session_state.interview_history = []
-        if st.session_state.qa_chain: st.success("İlan analiz edildi! Provanızı başlatmaya hazırsınız.")
-        else: st.error("İlan işlenirken bir sorun oluştu.")
+        st.session_state.qa_chain = create_rag_chain(input_data, GOOGLE_API_KEY)
+        st.session_state.interview_started = False
+        st.session_state.interview_history = []
+        if st.session_state.qa_chain:
+            st.success("İlan analiz edildi! Provanızı başlatmaya hazırsınız.")
+        else:
+            st.error("İlan işlenirken bir sorun oluştu. API anahtarınızı veya dosyayı kontrol edin.")
         st.rerun()
     
+    # --- MÜLAKAT SİMÜLASYONU ARAYÜZÜ ---
     if st.session_state.get('qa_chain') is not None:
         if not st.session_state.interview_started:
             if st.button("Mülakat Provasını Başlat", use_container_width=True, key="start_interview"):
-                st.session_state.interview_started = True; st.session_state.interview_history = []; st.rerun()
+                st.session_state.interview_started = True
+                st.session_state.interview_history = []
+                st.rerun()
 
         if st.session_state.interview_started:
             if not st.session_state.interview_history:
                 with st.spinner("İlk mülakat sorunuz hazırlanıyor..."):
                     initial_prompt = "Sen deneyimli bir işe alım yöneticisisin. Sana verdiğim iş ilanı metnini kullanarak bir mülakat simülasyonu başlat. İlk görevin, ilandaki en önemli teknik veya sosyal yetkinliğe odaklanan, adayın yeteneklerini ölçmeye yönelik yaratıcı ve açık uçlu bir soru sormak. Sadece soruyu sor, başka bir şey söyleme."
-                    response = st.session_state.qa_chain.invoke({"query": initial_prompt})
-                    if response: st.session_state.interview_history.append({"role": "assistant", "content": response})
+                    response_dict = st.session_state.qa_chain.invoke({"query": initial_prompt})
+                    if response_dict and 'result' in response_dict:
+                        st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
+                    else:
+                        st.error("İlk soru oluşturulamadı.")
                     st.rerun()
             
             for message in st.session_state.interview_history:
@@ -365,19 +373,29 @@ with tab_rag:
                 st.session_state.interview_history.append({"role": "user", "content": user_answer})
                 with st.spinner("Cevabınız değerlendiriliyor ve yeni soru hazırlanıyor..."):
                     follow_up_prompt = f"Sen deneyimli bir işe alım yöneticisisin ve bir mülakat simülasyonu yapıyorsun. Sana verdiğim iş ilanı metnini ve adayın son cevabını dikkate alarak şu iki adımı uygula: 1. Geri Bildirim Ver: Adayın '{user_answer}' cevabını kısaca ve yapıcı bir dille değerlendir. 2. Yeni Soru Sor: İlandaki FARKLI bir yetkinliği ölçmek için yeni ve yaratıcı bir soruya geç. Tüm bu cevabını tek bir akıcı paragraf olarak sun. Konuşma geçmişi: {st.session_state.interview_history}"
-                    response = st.session_state.qa_chain.invoke({"query": follow_up_prompt})
-                    if response: st.session_state.interview_history.append({"role": "assistant", "content": response})
+                    response_dict = st.session_state.qa_chain.invoke({"query": follow_up_prompt})
+                    if response_dict and 'result' in response_dict:
+                        st.session_state.interview_history.append({"role": "assistant", "content": response_dict['result']})
+                    else:
+                        st.error("Yeni soru oluşturulamadı.")
                 st.rerun()
                 
             st.markdown("---")
             col_rag1, col_rag2 = st.columns(2)
             with col_rag1:
                 if st.button("Mülakat Provasını Bitir", use_container_width=True, key="end_interview"):
-                    st.session_state.interview_started = False; st.session_state.interview_history = []; st.success("Prova sonlandırıldı."); st.rerun()
+                    st.session_state.interview_started = False
+                    st.session_state.interview_history = []
+                    st.success("Prova sonlandırıldı.")
+                    st.rerun()
             with col_rag2:
                 if st.button("Yeni İlanla Prova Yap", use_container_width=True, key="new_job_ad"):
-                    st.session_state.qa_chain = None; st.session_state.interview_started = False; st.session_state.interview_history = []
-                    st.session_state.processed_rag_file_id = None; st.session_state.processed_rag_text = None
-                    st.info("Yeni bir iş ilanı yükleyebilirsiniz."); st.rerun()
+                    st.session_state.qa_chain = None
+                    st.session_state.interview_started = False
+                    st.session_state.interview_history = []
+                    st.session_state.processed_rag_file_id = None
+                    st.session_state.processed_rag_text = None
+                    st.info("Yeni bir iş ilanı yükleyebilirsiniz.")
+                    st.rerun()
     else:
         st.info("Bir mülakat provası yapmak için lütfen bir iş ilanı yükleyin veya metnini yapıştırın.")
