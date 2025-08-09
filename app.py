@@ -512,34 +512,7 @@ st.info("""
 - Büyük dosyalar yüklerken sabırlı olun - cloud ortamı yerel makinenizden daha yavaş olabilir
 """)
 
-# === EK PERFORMANS İYİLEŞTİRME ÖNERİLERİ ===
 
-"""
-REQUIREMENTS.TXT İÇİN EK ÖNERİLER:
-Bu paketler gereksizse kaldırabilirsiniz:
-
-# Kullanmıyorsanız kaldırın:
-- altair (görselleştirme için)
-- pillow (resim işleme için) 
-- pyarrow (veri işleme için)
-- SQLAlchemy (veritabanı için)
-
-# Daha hafif alternatifler:
-pypdf yerine PyPDF2==3.0.1 kullanmaya devam edin (daha hafif)
-
-# Kesinlikle gerekli olanlar:
-streamlit
-python-dotenv
-google-generativeai
-langchain
-langchain-google-genai
-langchain-community
-langchain-text-splitters
-chromadb
-PyPDF2
-python-docx
-requests
-"""
 
 # === PERFORMANS İYİLEŞTİRME CHECKPOINT'LERİ ===
 
