@@ -345,7 +345,7 @@ with tab_pano:
         else:
             st.text_input("Hedefiniz için bir plan oluşturun", placeholder="Önce kariyer alanlarını keşfedin", disabled=True)
         
-        plan_button_disabled = not chosen_career or st.session_state.analysis_in_progress or (st.session_state.plan and st.session_state.chosen_career_for_plan == chosen_career)
+        plan_button_disabled = bool(not chosen_career or st.session_state.analysis_in_progress or (st.session_state.plan and st.session_state.chosen_career_for_plan == chosen_career))
         if st.button("Yol Haritamı Çiz", use_container_width=True, key="plan_btn", disabled=plan_button_disabled):
             st.session_state.analysis_in_progress = True
             with st.spinner(f"'{chosen_career}' için yol haritanız çiziliyor..."):
@@ -495,3 +495,4 @@ with tab_rag:
                     st.rerun()
     else:
         st.info("Bir mülakat provası yapmak için lütfen bir iş ilanı yükleyin veya metnini yapıştırın.")
+      
