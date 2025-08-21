@@ -23,12 +23,9 @@ Projenin çalışabilmesi için bir Google API anahtarına ihtiyacınız vardır
 Google AI Studio adresinden ücretsiz bir API anahtarı alın.
 Proje klasöründe .env adında yeni bir dosya oluşturun.
 Oluşturduğunuz bu dosyanın içine aşağıdaki satırı ekleyin ve kendi API anahtarınızı yapıştırın:
-Generated code
+
 GOOGLE_API_KEY="BURAYA_KENDİ_API_ANAHTARINIZI_YAPIŞTIRIN"
-Use code with caution.
+
 ### 4. Uygulamayı Başlatın
-Generated bash
-streamlit run app.py
-Use code with caution.
-Bash
-Uygulama, tarayıcınızda otomatik olarak açılacaktır.
+Terminalizine "streamlit run app.py" yazarak tarayıcınızda otomatik olarak çalıştırabilirsiniz.
+https://upschoolaifirstdeveloper-b2ndx2hpy4ks4fw7e4lxpc.streamlit.app/ Buradan direkt uygulmayı çalıştırıp kullanabilirsiniz.
