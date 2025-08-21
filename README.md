@@ -16,7 +16,7 @@ Bu proje, kullanıcıların CV'lerini analiz ederek onlara kişiselleştirilmiş
 **UI:** Streamlit
 **Dosya İşleme:** PyPDF2, python-docx
 
-## 🔧 AI Mimarisi
+## AI Mimarisi
 ### Agent Sistemi
 
 **CareerAgent:** Kariyer analizi ve öneriler
@@ -30,11 +30,11 @@ Bu proje, kullanıcıların CV'lerini analiz ederek onlara kişiselleştirilmiş
 **Retrieval:** Semantik arama
 **Generation:** Gemini ile yanıt üretimi
 
-## 🚀 Kurulum ve Çalıştırma
+## Kurulum ve Çalıştırma
 
 Bu projeyi kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları izleyin.
 
-### 📋 Gereksinimler
+### Gereksinimler
 
 Python 3.8 veya üzeri
 Google API anahtarı
@@ -71,6 +71,7 @@ streamlit run app.py
 ## 🌐 Canlı Demo
 
 **Alternatif Olarak:** [Bu linkten](https://upschoolaifirstdeveloper-b2ndx2hpy4ks4fw7e4lxpc.streamlit.app/) direkt uygulamayı çalıştırıp kullanabilirsiniz.
+
 
 ## 📸 Uygulma İçinden Bazı Ekran Görüntüleri
 <img width="1916" height="967" alt="image" src="https://github.com/user-attachments/assets/cac94a1d-2ba7-430a-bb1b-5ae007242858" />
