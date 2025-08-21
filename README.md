@@ -80,12 +80,6 @@ streamlit run app.py
 *Ana sayfa görünümü, CV anliz edildikten sonraki ekran, SWOT analizi sonuçları*
 
 
-<img width="1916" height="967" alt="image" src="https://github.com/user-attachments/assets/cac94a1d-2ba7-430a-bb1b-5ae007242858" />
-<img width="1917" height="969" alt="image" src="https://github.com/user-attachments/assets/761f279f-f2f0-4188-b127-b620da784660" />
-<img width="1919" height="963" alt="image" src="https://github.com/user-attachments/assets/1af38a9d-65c4-46fe-a921-f8daa14d1cae" />
-
-*Ana sayfa görünümü, CV anliz edildikten sonraki ekran, SWOT analizi sonuçları*
-
 ## 📁 Proje Yapısı
 
 ```
@@ -114,7 +108,6 @@ Dilerseniz demo videoma [buradan](https://drive.google.com/file/d/1axTT7jkcnEfGD
 ## 👨‍💻 Geliştirici
 
 **Seyma Tezel** - [GitHub](https://github.com/seymatezel) / [LinkedIn](https://www.linkedin.com/in/seymatezel)
-```
 
 
 
