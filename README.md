@@ -1,4 +1,4 @@
-# 🤖 AI Destekli Kariyer Koçu
+# 🤖 AI Kariyer Rehberiniz
 Bu proje, kullanıcıların CV'lerini analiz ederek onlara kişiselleştirilmiş kariyer rehberliği sunan, Streamlit ile geliştirilmiş bir web uygulamasıdır. Google Gemini yapay zeka modeli kullanılarak, kullanıcının potansiyelini ortaya çıkarmayı ve kariyer yolculuğunda somut adımlar sunmayı hedefler.
 ## ✨ Ana Özellikler
 Çoklu CV Formatı: PDF, DOCX ve doğrudan metin girişi desteği.
