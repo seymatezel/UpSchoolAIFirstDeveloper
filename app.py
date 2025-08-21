@@ -186,15 +186,13 @@ with st.sidebar:
             st.text(st.session_state.cv_text[:500] + "...")
         
         if st.button("Yeni Bir Yolculuk Başlat (Sıfırla)", use_container_width=True):
-            # Keep the file uploader key to avoid Streamlit bugs
-            file_uploader_state = st.session_state.get('file_uploader_key')
-            # Clear all other session state keys
+            # 'file_uploader_key' dışındaki tüm session_state anahtarlarını sil.
+            # Bu widget'a bağlı olduğu için ona dokunmuyoruz.
             for key in list(st.session_state.keys()):
                 if key != 'file_uploader_key':
                     del st.session_state[key]
-            # Restore the file uploader key if it existed
-            if file_uploader_state:
-                st.session_state['file_uploader_key'] = file_uploader_state
+                    
+            # Diğer tüm veriler silindi. Uygulamayı yeniden çalıştır.
             st.rerun()
 
 # --- ANA EKRAN ---
