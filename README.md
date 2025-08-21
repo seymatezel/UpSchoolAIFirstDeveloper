@@ -8,16 +8,13 @@ Modern Arayüz: Streamlit ile oluşturulmuş interaktif ve kullanıcı dostu bir
 ## 🚀 Kurulum ve Çalıştırma
 Bu projeyi kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları izleyin.
 ### 1. Projeyi İndirin
-Generated bash
-git clone https://github.com/seymatezel/UpSchool-AIFD.git
-cd UpSchool-AIFD
-Use code with caution.
-Bash
+Terminalinize " git clone https://github.com/seymatezel/UpSchool-AIFD.git
+cd UpSchool-AIFD" yazıp projeyi indirin.
+
+
 ### 2. Gerekli Kütüphaneleri Yükleyin
-Generated bash
-pip install -r requirements.txt
-Use code with caution.
-Bash
+Terminalinize "pip install -r requirements.txt" yazınız ve tüm teknolojileri yükleyin.
+
 ### 3. API Anahtarınızı Ekleyin
 Projenin çalışabilmesi için bir Google API anahtarına ihtiyacınız vardır.
 Google AI Studio adresinden ücretsiz bir API anahtarı alın.
