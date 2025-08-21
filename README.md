@@ -2,14 +2,14 @@
 
 Bu proje, kullanıcıların CV'lerini analiz ederek onlara kişiselleştirilmiş kariyer rehberliği sunan, Streamlit ile geliştirilmiş bir web uygulamasıdır. Google Gemini yapay zeka modeli kullanılarak, kullanıcının potansiyelini ortaya çıkarmayı ve kariyer yolculuğunda somut adımlar sunmayı hedefler.
 
-## Özellikler
+## 📱Özellikler
 
 **Çoklu Format:** PDF, DOCX, metin desteği 
 **AI Analizler:** SWOT, Kariyer Yolu, Öğrenme Planı
 **Smart Agents:** LangChain tabanlı modüler sistem
 **RAG Pipeline:** Doküman işleme ve semantik arama
 
-## 🛠️ Teknolojiler
+## 🔧 Teknolojiler
 
 **AI:** Google Gemini Pro + LangChain
 **RAG:** Vektör embedding ve retrieval
@@ -30,7 +30,7 @@ Bu proje, kullanıcıların CV'lerini analiz ederek onlara kişiselleştirilmiş
 **Retrieval:** Semantik arama
 **Generation:** Gemini ile yanıt üretimi
 
-## Kurulum ve Çalıştırma
+## 💻 Kurulum ve Çalıştırma
 
 Bu projeyi kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları izleyin.
 
@@ -103,10 +103,10 @@ UpSchoolAIFirstDeveloper/
     └── rag_readme.md        # RAG sistemi dokümantasyonu
 ```
 
-## Demo Videosu:
+## 📽️ Demo Videosu:
 Dilerseniz demo videoma [buradan](https://drive.google.com/file/d/1axTT7jkcnEfGD1dkwhnaW6LPuzUyOhka/view?usp=drive_link) ulaşabilirsiniz!
 
-## 👨‍💻 Geliştirici
+## 👩‍💻 Geliştirici
 
 **Seyma Tezel** - [GitHub](https://github.com/seymatezel) / [LinkedIn](https://www.linkedin.com/in/seymatezel)
 
