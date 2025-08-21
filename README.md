@@ -1,8 +1,8 @@
-# 🤖 AI Kariyer Rehberiniz
+# AI Kariyer Rehberiniz
 
 Bu proje, kullanıcıların CV'lerini analiz ederek onlara kişiselleştirilmiş kariyer rehberliği sunan, Streamlit ile geliştirilmiş bir web uygulamasıdır. Google Gemini yapay zeka modeli kullanılarak, kullanıcının potansiyelini ortaya çıkarmayı ve kariyer yolculuğunda somut adımlar sunmayı hedefler.
 
-## ✨ Özellikler
+## Özellikler
 
 **Çoklu Format:** PDF, DOCX, metin desteği 
 **AI Analizler:** SWOT, Kariyer Yolu, Öğrenme Planı
